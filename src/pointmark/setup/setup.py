@@ -44,6 +44,9 @@ def init_pointmark(args, data_path, description: str, warning: str, pm_function,
             raise Exception("'--aggregation_mode' can only be used with '--metrics'")
         if export is not None:
             raise Exception("'--export' can only be used with '--metrics'")
+        
+    elif metrics and  agg_mode is None:
+        agg_mode = "none"
 
     # set a project path
     if args.project_path is None:

@@ -41,7 +41,7 @@ def main():
     parser.add_argument(
         "--aggregation_mode",
         choices=["min", "max", "mean", "none"],
-        default="none",
+        default=None,
         help="aggregation mode: 'min', 'max', 'mean' or 'none'"
     )
     parser.add_argument(
