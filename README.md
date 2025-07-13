@@ -1,7 +1,7 @@
 
 # Pointmark
 
-Pointmark is an open-source tool for the automated processing of videogrammetry data and subsequent quality assessment of the generated point clouds. The software can be used in both batch mode and for individual videos and calculates various metrics to evaluate the reconstructed sparse point clouds.
+Pointmark is a tool for the automated processing of videogrammetry data and subsequent quality assessment of the generated point clouds. The software can be used in both batch mode and for individual videos and calculates various metrics to evaluate the reconstructed sparse point clouds.
 
 # Content
 
