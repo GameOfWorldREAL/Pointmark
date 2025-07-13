@@ -58,7 +58,7 @@ This guide explains how to set up **Pointmark** and all required dependencies (P
 ## 1. Clone the Repository
 
 ```
-git clone https://git.imp.fu-berlin.de/martis61/pointcloud_benchmark
+git clone https://github.com/GameOfWorldREAL/Pointmark.git
 cd pointmark
 ```
 
