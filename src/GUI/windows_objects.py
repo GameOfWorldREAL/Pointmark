@@ -1,4 +1,8 @@
 import sys
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QAction, QTextCursor
@@ -7,7 +11,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget, QHBoxLayout, QSizePolicy,
     QMenuBar, QMenu, QListWidgetItem, QListWidget,
     QFormLayout, QCheckBox, QComboBox, QSpinBox,
-    QSlider, QSplitter, QPlainTextEdit
+    QSlider, QSplitter, QPlainTextEdit, QLabel
 )
 import numpy as np
 import pyvista as pv
@@ -19,7 +23,7 @@ from src.GUI.gui_handler import (
     handle_display_parameters_changed,
     PyVistaUpdater
 )
-
+from src.metrics.MetricData import METRICS
 
 #=========================
 #chatGPT 4.o generated gui
@@ -178,7 +182,7 @@ class PointCloudViewer(QWidget):
             diffuse=brightness,
             specular=0.0,
             opacity="alpha" if alpha_array is not None else 1.0,
-            #show_scalar_bar = False #TODO
+            show_scalar_bar = False
         )
 
         if reset_camera:
@@ -360,8 +364,12 @@ class TerminalOutputWidget(QPlainTextEdit):
         self.setMaximumBlockCount(1000)  # Nur letzte 1000 Zeilen behalten
 
     def append_text(self, text: str):
-        self.insertPlainText(text)
-        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+        clean_text = text.replace('\r\n', '\n').replace('\r', '\n')
+        import re
+        ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+        clean_text = ansi_escape.sub('', clean_text)
+
+        self.appendPlainText(clean_text)
 
 class ConsoleOutput(QObject):
     new_text = Signal(str)
@@ -464,6 +472,44 @@ class RightSidePane(QDockWidget):
             "aggregation_mode": self.aggregation_combo.currentText()
         }
         self.parameters_changed.emit(params)
+        self.update_colorbar(params["color_scale"])
+
+    def update_colorbar(self, cmap_name):
+        palette = self.palette()
+        bg_qcolor = palette.color(self.backgroundRole())
+        bg_rgb = (bg_qcolor.redF(), bg_qcolor.greenF(), bg_qcolor.blueF())
+        bg_hex = mpl.colors.to_hex(bg_rgb)
+
+        self.colorbar_ax.clear()
+        self.colorbar_ax.set_facecolor(bg_hex)
+        self.colorbar_canvas.figure.set_facecolor(bg_hex)
+        self.colorbar_canvas.figure.subplots_adjust(bottom=0.7)
+
+        cmap = mpl.cm.get_cmap(cmap_name)
+        norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
+        mpl.colorbar.ColorbarBase(
+            self.colorbar_ax,
+            cmap=cmap,
+            norm=norm,
+            orientation='horizontal'
+        )
+        brightness = sum(bg_rgb) / 3.0
+        label_color = 'black' if brightness > 0.5 else 'white'
+
+        self.colorbar_ax.text(
+            0.0, -0.5, "high",
+            ha='left', va='top',
+            fontsize=9, color=label_color,
+            transform=self.colorbar_ax.transAxes
+        )
+        self.colorbar_ax.text(
+            1.0, -0.5, "low",
+            ha='right', va='top',
+            fontsize=9, color=label_color,
+            transform=self.colorbar_ax.transAxes
+        )
+        self.colorbar_ax.set_xticks([])
+        self.colorbar_canvas.draw()
 
     def create_controls(self):
         self.metric_combo = QComboBox()
@@ -516,6 +562,19 @@ class RightSidePane(QDockWidget):
         self.ooi_alpha_slider.setRange(0, 100)
         self.ooi_alpha_slider.setValue(10)  # Initialwert
 
+        self.colorbar_canvas = FigureCanvas(Figure(figsize=(4, 1)))
+        self.colorbar_ax = self.colorbar_canvas.figure.subplots()
+        self.update_colorbar("jet")  # Initial
+        colorbar_label = QLabel("Colorbar-(Quality)")
+        colorbar_label.setAlignment(Qt.AlignLeft)
+
+        # Vertikales Layout für Label + Canvas
+        colorbar_container = QWidget()
+        colorbar_layout = QVBoxLayout(colorbar_container)
+        colorbar_layout.setContentsMargins(0, 0, 0, 0)
+        colorbar_layout.setSpacing(5)
+        colorbar_layout.addWidget(colorbar_label)
+        colorbar_layout.addWidget(self.colorbar_canvas)
 
 
 
@@ -529,7 +588,7 @@ class RightSidePane(QDockWidget):
         form.addRow(self.display_grid_checkbox)
         form.addRow("Aggregation Mode", self.aggregation_combo)
         form.addRow("OOI Alpha", self.ooi_alpha_slider)
-
+        form.addRow(colorbar_container)
         container = QWidget()
         container.setLayout(form)
         return container
@@ -553,7 +612,20 @@ class ProjectListPanel(QListWidget):
     def add_project(self, project):
         if any(p.path == project.path for p in self.projects):
             return
-        item = QListWidgetItem(f"{project.name}\n{project.path}")
+
+        ooi = project.get_metric(METRICS.OOI).measurement
+        ooi_true = int(np.sum(ooi == 1))
+        ooi_total = len(ooi)
+        score_str = f"{project.score:.2f}" if project.score is not None else "N/A"
+
+        item_text = (
+            f"{project.name}\n"
+            f"Score: {score_str}\n"
+            f"OOI: {ooi_true} / {ooi_total}\n"
+            f"{project.path}"
+        )
+
+        item = QListWidgetItem(item_text)
         item.setData(1000, project)
         self.addItem(item)
         self.projects.append(project)
