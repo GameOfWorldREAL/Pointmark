@@ -80,6 +80,12 @@ Then install all dependencies:
 pip install -r requirements.txt
 ```
 
+If you want to use CUDA, please install the appropriate PyTorch build with CUDA support.
+
+You can find the installation command here:
+https://pytorch.org/get-started/locally/
+
+CUDA support has been tested with **PyTorch version 2.7**.
 ---
 
 ## 3. Install External Dependencies
